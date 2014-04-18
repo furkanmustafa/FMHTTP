@@ -47,7 +47,7 @@ class Request extends Base {
 		if ($this->timeout!=null)
 			curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
 		
-		$response = new FMHTTPResponse();
+		$response = new Response();
 		$response->request = $this;
 		
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);

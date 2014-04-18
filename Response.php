@@ -48,10 +48,14 @@ class Response extends Base {
 	}
 	
 	function send() {
+		if ($this->statusCode) {
+			header("HTTP/{$this->version} {$this->statusCode} {$this->statusMessage}");
+		}
+		$bodyStr = $this->processedRequestBody();
+		$this->headers['Content-Length'] = strlen($bodyStr);
 		foreach ($this->headers as $name => $value)
 			header($name . ': '. $value);
-		$bodyStr = $this->processedRequestBody();
-		header('Content-Length: ' . $bodyStr);
+		
 		echo $bodyStr;
 	}
 }
