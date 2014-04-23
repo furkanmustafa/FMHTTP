@@ -62,14 +62,17 @@ class Request extends Base {
 		if ($this->method == 'POST') {
 			curl_setopt($ch, CURLOPT_POST, true);
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $this->body);
-		} else if ($this->method == 'PUT') {
-			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-			curl_setopt($ch, CURLOPT_POSTFIELDS, $this->body);
+		} else if (!in_array($this->method, array('GET', 'POST'))) {
+			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $this->method);
+			if ($this->body)
+				curl_setopt($ch, CURLOPT_POSTFIELDS, $this->body);
 		}
 		
 		$curlStatus = curl_exec($ch);
 		$this->rawHeaders = curl_getinfo($ch, CURLINFO_HEADER_OUT);
 		curl_close($ch);
+		
+		$response->process();
 		
 		return $response;
 	}
@@ -81,7 +84,7 @@ class Request extends Base {
 		
 		// do this later:
 		// Content-Type	multipart/form-data; boundary=----WebKitFormBoundaryp6D5nfMyUxAWWBwr
-		//
+		
 		if (count($_POST) || !isset($this->headers['Content-Type'])) {
 			$this->data = $_POST;
 		} else if ($this->headers['Content-Type']==='application/json') {

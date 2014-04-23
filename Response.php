@@ -7,8 +7,7 @@ class Response extends Base {
 	public $statusMessage = null;
 	public $request = null;
 	
-	// public $parser = null;
-	public $parsedData = null;
+	public $data = null;
 	
 	private $rawHeadersFinished = false;
 	
@@ -41,6 +40,16 @@ class Response extends Base {
 				$this->body .= $body;
 		}
 		return strlen($body);
+	}
+	
+	function process() {
+		if (!isset($this->headers['Content-Type'])) {
+			$this->data = $this->body;
+		}
+		else if ($this->headers['Content-Type']==='application/json') {
+			$this->data = json_decode($this->body, true);
+		}
+		// add more formats can be easily processed into data.
 	}
 	
 	function __tostring() {
