@@ -11,6 +11,11 @@ class Request extends Base {
 	public $postData = null;
 	public $timeout = null;
 	
+	public $ignoreSSLErrors = false;
+	
+	public $httpUser = false;
+	public $httpPass = false;
+	
 	static $Request = null;
 	
 	function __construct($url = null) {
@@ -41,6 +46,11 @@ class Request extends Base {
 		if (!isset($this->headers['Expect']))
 			$headers[] = "Expect:";
 		
+		if ($this->httpUser && $this->httpPass) {
+			$headers[] = 'Authorization: Basic '. base64_encode($this->httpUser . ':' . $this->httpPass);
+		}
+		
+		
 		if (count($headers) > 0)
 			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 		
@@ -66,6 +76,11 @@ class Request extends Base {
 			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $this->method);
 			if ($this->body)
 				curl_setopt($ch, CURLOPT_POSTFIELDS, $this->body);
+		}
+		
+		if ($this->ignoreSSLErrors) {
+			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 		}
 		
 		$curlStatus = curl_exec($ch);
