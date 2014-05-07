@@ -8,8 +8,13 @@ class Response extends Base {
 	public $request = null;
 	
 	public $data = null;
+	public $errorData = null;
 	
 	private $rawHeadersFinished = false;
+	
+	function getAnyData() {
+		return $this->statusCode >= 400 ? $this->errorData : $this->data;
+	}
 	
 	function curlSetHeader(&$ch, $header) {
 		if (!$this->statusCode && preg_match('/^HTTP\/([0-9\.]+) ([0-9]+) (.+)$/', trim($header, " \t\r\n"), $m)) {
@@ -43,11 +48,13 @@ class Response extends Base {
 	}
 	
 	function process() {
+		$dataTarget = $this->statusCode >= 400 ? 'errorData' : 'data';
+		
 		if (!isset($this->headers['Content-Type'])) {
-			$this->data = $this->body;
+			$this->$dataTarget = $this->body;
 		}
 		else if ($this->headers['Content-Type']==='application/json') {
-			$this->data = json_decode($this->body, true);
+			$this->$dataTarget = json_decode($this->body, true);
 		}
 		// add more formats can be easily processed into data.
 	}
