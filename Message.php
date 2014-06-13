@@ -13,6 +13,7 @@ class Message {
 	public $rawHeaders;
 	public $body = null;
 	public $mimeType = null;
+	public $mimeTypeOptions = null;
 	public $version = 1.1;
 	
 	function setHeader($name, $value = null) {
@@ -24,8 +25,25 @@ class Message {
 		$value = trim($value, " \t\r\n");
 		if (strlen($name) > 0)
 			$this->headers[$name] = $value;
-		if ($name == 'Content-Type')
+		if ($name == 'Content-Type') {
 			$this->mimeType = $value;
+			if (preg_match('/^([^;]+)(?:;(.+))?$/', $value, $match)) {
+				$this->mimeType = trim($match[1]);
+				if ($match[2]) {
+					$_otherParams = explode(';', trim($match[2]));
+					$this->mimeTypeOptions = array();
+				
+					foreach ($_otherParams as $_op) {
+						$split = explode('=', trim($_op));
+						if (count($split) == 2) {
+							$this->mimeTypeOptions[trim($split[0])] = trim($split[1]);
+						} else if ($split[0]) {
+							$this->mimeTypeOptions[$split[0]] = true;
+						}
+					}
+				}
+			}
+		}
 	}
 	function getHeader($name) {
 		if (isset($this->headers[$name]))
