@@ -8,7 +8,7 @@
 
 namespace FMHTTP;
 
-class Base {
+class Message {
 	public $headers = array();
 	public $rawHeaders;
 	public $body = null;
@@ -100,6 +100,44 @@ class Base {
 			$this->body = (string)$this->postData;
 		}
 		return $this->body;
+	}
+	function getBody() {
+		return $this->processedRequestBody();
+	}
+	function &__get($var) {
+		$methodName = 'get'.ucfirst($var);
+		if (method_exists($this, $methodName)) {
+			return $this->$methodName();
+		}
+		
+		if (property_exists($this, $var))
+			return $this->$var;
+		
+		throw new Exception('No such property ' . get_called_class() . '->' . $var);
+	}
+	
+	function __set($var, $val) {
+		$methodName = 'set'.ucfirst($var);
+		if (method_exists($this, $methodName)) {
+			return $this->$methodName($val);
+		}
+		if (property_exists($this, $var)) {
+			$this->$var = $val;
+			return;
+		}
+		throw new Exception('No such property ' . get_called_class() . '->' . $var);
+	}
+	
+	function __call($methodname, $args) {
+		if (preg_match('/^(set|get)([A-Z]{1}.+)$/', $methodname, $match)) {
+			$varname = strtolower(substr($match[2], 0, 1)) . substr($match[2], 1);
+			if ($match[1] === 'get') {
+				return $this->__get($varname);
+			} else {
+				return $this->__set($varname, $args[0]);
+			}
+		}
+		throw new Exception('No such method ' . get_called_class() . '->' . $methodname);
 	}
 	
 }

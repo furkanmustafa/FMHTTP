@@ -2,7 +2,7 @@
 
 namespace FMHTTP;
 
-class Response extends Base {
+class Response extends Message {
 	public $statusCode = null;
 	public $statusMessage = null;
 	public $request = null;

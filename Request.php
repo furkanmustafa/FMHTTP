@@ -2,7 +2,7 @@
 
 namespace FMHTTP;
 
-class Request extends Base {
+class Request extends Message {
 	public $url;
 	public $uri = null;
 	public $files = null;
@@ -29,6 +29,8 @@ class Request extends Base {
 		if (!$this->url)
 			return false;
 		$opts['http']['method'] = $this->method;
+		
+		$this->method = strtoupper($this->method);
 		
 		if ($this->method=='POST') {
 			$this->body = $this->processedRequestBody();
@@ -142,4 +144,6 @@ class Request extends Base {
 	}
 }
 
-Request::InitCurrent();
+if (php_sapi_name() !== 'cli') {
+	Request::InitCurrent();
+}
