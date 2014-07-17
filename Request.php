@@ -5,6 +5,7 @@ namespace FMHTTP;
 class Request extends Message {
 	public $url;
 	public $uri = null;
+	public $path = null;
 	public $files = null;
 	public $data = null;
 	public $method = 'GET';
@@ -118,9 +119,19 @@ class Request extends Message {
 			self::$Request->setBody(stream_get_contents(STDIN));
 			self::$Request->method = 'CLI';
 		} else if (isset($_SERVER['REQUEST_METHOD'])) {
+			$port = (int)$_SERVER['SERVER_PORT'];
+			$host = $_SERVER['HTTP_HOST'];
+			$https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? true : false;
+			
 			self::$Request->uri = $_SERVER['REQUEST_URI'];
+			self::$Request->path = strpos(self::$Request->uri, '?')===false ? self::$Request->uri : substr(self::$Request->uri, 0, strpos(self::$Request->uri, '?'));
 			self::$Request->method = $_SERVER['REQUEST_METHOD'];
 			self::$Request->headers = self::__getAllHeaders();
+			
+			self::$Request->url = ($https ? 'https' : 'http') . '://' . $host . 
+				(($https && $port == 443) || (!$https && $port == 80) ? '' : ':' . $port) .
+				self::$Request->uri;
+			
 			if (!$_FILES) {
 				self::$Request->setBody(file_get_contents('php://input'));
 			} else {
