@@ -48,6 +48,11 @@ class Message {
 	function getHeader($name) {
 		if (isset($this->headers[$name]))
 			return $this->headers[$name];
+		
+		foreach ($this->headers as $_name => $_value) {
+			if (strtolower($_name) != strtolower($name)) continue;
+			return $_value;
+		}
 		return null;
 	}
 	
@@ -122,6 +127,7 @@ class Message {
 	function getBody() {
 		return $this->processedRequestBody();
 	}
+	
 	function &__get($var) {
 		$methodName = 'get'.ucfirst($var);
 		if (method_exists($this, $methodName)) {
@@ -133,7 +139,6 @@ class Message {
 		
 		throw new \Exception('No such property ' . get_called_class() . '->' . $var);
 	}
-	
 	function __set($var, $val) {
 		$methodName = 'set'.ucfirst($var);
 		if (method_exists($this, $methodName)) {
@@ -145,7 +150,6 @@ class Message {
 		}
 		throw new \Exception('No such property ' . get_called_class() . '->' . $var);
 	}
-	
 	function __call($methodname, $args) {
 		if (preg_match('/^(set|get)([A-Z]{1}.+)$/', $methodname, $match)) {
 			$varname = strtolower(substr($match[2], 0, 1)) . substr($match[2], 1);
@@ -157,5 +161,4 @@ class Message {
 		}
 		throw new \Exception('No such method ' . get_called_class() . '->' . $methodname);
 	}
-	
 }
