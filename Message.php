@@ -131,7 +131,7 @@ class Message {
 		if (property_exists($this, $var))
 			return $this->$var;
 		
-		throw new Exception('No such property ' . get_called_class() . '->' . $var);
+		throw new \Exception('No such property ' . get_called_class() . '->' . $var);
 	}
 	
 	function __set($var, $val) {
@@ -143,7 +143,7 @@ class Message {
 			$this->$var = $val;
 			return;
 		}
-		throw new Exception('No such property ' . get_called_class() . '->' . $var);
+		throw new \Exception('No such property ' . get_called_class() . '->' . $var);
 	}
 	
 	function __call($methodname, $args) {
@@ -155,7 +155,7 @@ class Message {
 				return $this->__set($varname, $args[0]);
 			}
 		}
-		throw new Exception('No such method ' . get_called_class() . '->' . $methodname);
+		throw new \Exception('No such method ' . get_called_class() . '->' . $methodname);
 	}
 	
 }
