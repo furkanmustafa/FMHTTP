@@ -27,6 +27,8 @@ class Request extends Message {
 	
 	static $RequestWriter = null;
 	
+	public $context = [];
+	
 	function __construct($url = null) {
 		if ($url)
 			$this->setUrl($url);

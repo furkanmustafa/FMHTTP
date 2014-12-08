@@ -16,6 +16,8 @@ class Response extends Message {
 	
 	static $ResponseWriter = null;
 	
+	public $context = [];
+	
 	function getAnyData() {
 		return $this->statusCode >= 400 ? $this->errorData : $this->data;
 	}
