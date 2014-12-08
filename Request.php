@@ -4,8 +4,14 @@ namespace FMHTTP;
 
 class Request extends Message {
 	public $url;
-	public $uri = null;
 	public $path = null;
+	public $uri = null;
+	public $host = null;
+	public $scheme = null;
+	public $query = null;
+	public $fragment = null;
+	public $port = 80;
+	
 	public $files = null;
 	public $data = null;
 	public $method = 'GET';
@@ -17,11 +23,34 @@ class Request extends Message {
 	public $httpUser = false;
 	public $httpPass = false;
 	
-	static $Request = null;
+	static $CurrentRequest = null;
+	
+	static $RequestWriter = null;
 	
 	function __construct($url = null) {
 		if ($url)
-			$this->url = $url;
+			$this->setUrl($url);
+	}
+	
+	function setURL($url) {
+		$parts = parse_url($url);
+		$this->url = $url;
+		$this->path = $parts['path'];
+		$this->host = $parts['host'];
+		$this->scheme = $parts['scheme'];
+		$this->query = $parts['query'];
+		$this->uri = $this->path;
+		if ($this->query)
+			$this->uri .= '?' . $this->query;
+		$this->fragment = $parts['fragment'];
+		
+		if (isset($parts['port'])) {
+			$this->port = (int)$parts['port'];
+		} else {
+			$this->port = $this->scheme == 'https' ? 443 : 80;
+		}
+		$this->httpUser = isset($parts['user']) ? $parts['user'] : false;
+		$this->httpPass = isset($parts['pass']) ? $parts['pass'] : false;
 	}
 	function setJSON() {
 		$this->setHeader('Content-Type', 'application/json');
@@ -29,6 +58,11 @@ class Request extends Message {
 	function &send() {
 		if (!$this->url)
 			return false;
+		
+		if (self::$RequestWriter) { // how do you think this should work?
+			return self::$RequestWriter->sendRequest($this);
+		}
+		
 		$opts['http']['method'] = $this->method;
 		
 		$this->method = strtoupper($this->method);
@@ -110,38 +144,46 @@ class Request extends Message {
 		}
 	}
 	
-	static function InitCurrent() {
-		if (self::$Request)
-			return self::$Request;
+	static function InitCurrent($serverParameters = null, $inputStreamOrPayload = null) {
+		if ($serverParameters === null)
+			$serverParameters = $_SERVER;
 		
-		self::$Request = new Request();
+		self::$CurrentRequest = new Request();
 		if (php_sapi_name() === 'cli') {
-			self::$Request->setBody(stream_get_contents(STDIN));
-			self::$Request->method = 'CLI';
+			self::$CurrentRequest->setBody(stream_get_contents(STDIN));
+			self::$CurrentRequest->method = 'CLI';
 		} else if (isset($_SERVER['REQUEST_METHOD'])) {
 			$port = (int)$_SERVER['SERVER_PORT'];
 			$host = $_SERVER['HTTP_HOST'];
 			$https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? true : false;
 			
-			self::$Request->uri = $_SERVER['REQUEST_URI'];
-			self::$Request->path = strpos(self::$Request->uri, '?')===false ? self::$Request->uri : substr(self::$Request->uri, 0, strpos(self::$Request->uri, '?'));
-			self::$Request->method = $_SERVER['REQUEST_METHOD'];
-			self::$Request->headers = self::__getAllHeaders();
-			
-			self::$Request->url = ($https ? 'https' : 'http') . '://' . $host . 
+			self::$CurrentRequest->uri = $_SERVER['REQUEST_URI'];
+			self::$CurrentRequest->method = $_SERVER['REQUEST_METHOD'];
+			self::$CurrentRequest->headers = self::__getAllHeaders();
+			self::$CurrentRequest->setUrl(
+				($https ? 'https' : 'http') . '://' . $host . 
 				(($https && $port == 443) || (!$https && $port == 80) ? '' : ':' . $port) .
-				self::$Request->uri;
-			
-			if (!$_FILES) {
-				self::$Request->setBody(file_get_contents('php://input'));
-			} else {
-				self::$Request->files = $_FILES;
-			}
+				self::$CurrentRequest->uri
+			);
 		}
-		return self::$Request;
+		// TODO : Make raw multipart form data parser for uploaded files
+		if (!$_FILES) {
+			self::$CurrentRequest->setBody(file_get_contents('php://input'));
+		} else {
+			self::$CurrentRequest->files = $_FILES;
+		}
+		return self::$CurrentRequest;
+	}
+	static function Current() {
+		if (!self::$CurrentRequest) {
+			self::InitCurrent();
+		}
+		return self::$CurrentRequest;
 	}
 	
-	static private function __getAllHeaders() {
+	static private function __getAllHeaders($serverParameters = null) {
+		if ($serverParameters === null)
+			$serverParameters = $_SERVER;
 		if (function_exists('getallheaders'))
 			return getallheaders();
 		
@@ -153,8 +195,35 @@ class Request extends Message {
 		}
 		return $headers;
 	}
-}
-
-if (php_sapi_name() !== 'cli') {
-	Request::InitCurrent();
+	
+	function writeTo(&$buffer) {
+		$stringBuffer = "HTTP/{$this->version} {$this->method} {$this->uri}\r\n";
+		// Host
+		$host = $this->getHeader('Host') ?: $this->host;
+		$stringBuffer .= 'Host: '. $host . "\r\n";
+		// Other Headers
+		foreach ($this->headers as $name => $value) if (strtolower($name) != 'host')
+			$stringBuffer .= $name . ': '. $value . "\r\n";
+		
+		$stringBuffer .= "\r\n";
+		
+		$bodyStr = $this->processedRequestBody();
+		if (strlen($bodyStr))
+			$stringBuffer .= $bodyStr;
+		
+		if (is_object($buffer) && is_callable([ $buffer, 'write' ])) {
+			return $buffer->write($stringBuffer) == strlen($stringBuffer);
+		} else if (is_resource($buffer)) { // stream or socket or file
+			for ($written = 0; $written < strlen($stringBuffer); $written += $fwrite) {
+			    $fwrite = fwrite($buffer, substr($stringBuffer, $written));
+			    if ($fwrite === false) {
+			        return false; // $written;
+			    }
+			}
+			return true;
+		} else if (is_string($buffer)) {
+			$buffer .= $stringBuffer;
+			return true;
+		}
+	}
 }

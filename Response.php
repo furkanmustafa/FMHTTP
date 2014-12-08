@@ -11,6 +11,10 @@ class Response extends Message {
 	public $errorData = null;
 	
 	private $rawHeadersFinished = false;
+    
+    static $CurrentResponse = null;
+	
+	static $ResponseWriter = null;
 	
 	function getAnyData() {
 		return $this->statusCode >= 400 ? $this->errorData : $this->data;
@@ -63,7 +67,18 @@ class Response extends Message {
 		return $this->body;
 	}
 	
+	static function Current() {
+		if (!self::$CurrentResponse) {
+			self::$CurrentResponse = new Response;
+		}
+		return self::$CurrentResponse;
+	}
+	
 	function send() {
+		if (self::$ResponseWriter) {
+			return self::$ResponseWriter->sendResponse($this);
+		}
+		// Use default php output
 		if ($this->statusCode) {
 			header("HTTP/{$this->version} {$this->statusCode} {$this->statusMessage}");
 		}
@@ -74,4 +89,30 @@ class Response extends Message {
 		
 		echo $bodyStr;
 	}
+	
+	function writeTo(&$buffer) {
+		$stringBuffer = "HTTP/{$this->version} {$this->statusCode} {$this->statusMessage}\r\n";
+		foreach ($this->headers as $name => $value)
+			$stringBuffer .= $name . ': '. $value . "\r\n";
+		$stringBuffer .= "\r\n";
+		$bodyStr = $this->processedRequestBody();
+		if (strlen($bodyStr))
+			$stringBuffer .= $bodyStr;
+		
+		if (is_object($buffer) && is_callable([ $buffer, 'write' ])) {
+			return $buffer->write($stringBuffer) == strlen($stringBuffer);
+		} else if (is_resource($buffer)) { // stream or socket or file
+			for ($written = 0; $written < strlen($stringBuffer); $written += $fwrite) {
+			    $fwrite = fwrite($buffer, substr($stringBuffer, $written));
+			    if ($fwrite === false) {
+			        return false; // $written;
+			    }
+			}
+			return true;
+		} else if (is_string($buffer)) {
+			$buffer .= $stringBuffer;
+			return true;
+		}
+	}
+	
 }
