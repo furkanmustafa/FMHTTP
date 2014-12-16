@@ -38,10 +38,14 @@ class Request extends Message {
 		$parts = parse_url($url);
 		$this->url = $url;
 		$this->path = $parts['path'];
-		$this->host = $parts['host'];
+		if (strpos($parts['host'], ':') === false)
+			$this->host = $parts['host'];
+		else
+			$this->host = substr($parts['host'], 0, strpos($parts['host'], ':'));
+		
 		$this->scheme = $parts['scheme'];
 		$this->query = $parts['query'];
-		$this->uri = $this->path;
+		$this->uri = $parts['path']; // $this->path;
 		if ($this->query)
 			$this->uri .= '?' . $this->query;
 		$this->fragment = $parts['fragment'];
@@ -155,10 +159,14 @@ class Request extends Message {
 			self::$CurrentRequest->setBody(stream_get_contents(STDIN));
 			self::$CurrentRequest->method = 'CLI';
 		} else if (isset($_SERVER['REQUEST_METHOD'])) {
-			$port = (int)$_SERVER['SERVER_PORT'];
 			$host = $_SERVER['HTTP_HOST'];
+			if (strpos($host, ':') !== false) {
+				list($host, $port) = explode(':', $host);
+			} else {
+				$port = (int)$_SERVER['SERVER_PORT'];
+			}
 			$https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? true : false;
-			
+
 			self::$CurrentRequest->uri = $_SERVER['REQUEST_URI'];
 			self::$CurrentRequest->method = $_SERVER['REQUEST_METHOD'];
 			self::$CurrentRequest->headers = self::__getAllHeaders();
