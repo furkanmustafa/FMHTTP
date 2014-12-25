@@ -156,7 +156,8 @@ class Request extends Message {
 		
 		self::$CurrentRequest = new Request();
 		if (php_sapi_name() === 'cli') {
-			self::$CurrentRequest->setBody(stream_get_contents(STDIN));
+			if (!feof(STDIN))
+				self::$CurrentRequest->setBody(stream_get_contents(STDIN));
 			self::$CurrentRequest->method = 'CLI';
 		} else if (isset($_SERVER['REQUEST_METHOD'])) {
 			$host = $_SERVER['HTTP_HOST'];
@@ -178,7 +179,7 @@ class Request extends Message {
 		}
 		// TODO : Make raw multipart form data parser for uploaded files
 		if (!$_FILES) {
-			self::$CurrentRequest->setBody(file_get_contents('php://input'));
+      self::$CurrentRequest->setBody(file_get_contents('php://input'));
 		} else {
 			self::$CurrentRequest->files = $_FILES;
 		}
