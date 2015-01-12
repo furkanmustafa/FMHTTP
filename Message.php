@@ -16,6 +16,8 @@ class Message {
 	public $mimeTypeOptions = null;
 	public $version = 1.1;
 	
+	protected $context = [];
+	
 	function setHeader($name, $value = null) {
 		if ($value==null && preg_match('/^([^:]+): (.+)$/', trim($name, " \t\r\n"), $m)) {
 			$name = $m[1];
@@ -29,7 +31,7 @@ class Message {
 			$this->mimeType = $value;
 			if (preg_match('/^([^;]+)(?:;(.+))?$/', $value, $match)) {
 				$this->mimeType = trim($match[1]);
-				if ($match[2]) {
+				if (isset($match[2])) {
 					$_otherParams = explode(';', trim($match[2]));
 					$this->mimeTypeOptions = array();
 				
@@ -45,6 +47,16 @@ class Message {
 			}
 		}
 	}
+	function addHeader($name, $value = null) {
+		if ($value==null && preg_match('/^([^:]+): (.+)$/', trim($name, " \t\r\n"), $m)) {
+			$name = $m[1];
+			$value = $m[2];
+		}
+		$name = trim($name, " \t\r\n");
+		$value = trim($value, " \t\r\n");
+		//
+		$this->headers[$name][] = $value;
+	}
 	function getHeader($name) {
 		if (isset($this->headers[$name]))
 			return $this->headers[$name];
@@ -54,6 +66,18 @@ class Message {
 			return $_value;
 		}
 		return null;
+	}
+	function unsetHeader($name) {
+		if (isset($this->headers[$name])) {
+			unset($this->headers[$name]);
+			return;
+		}
+		
+		foreach ($this->headers as $_name => $_value) {
+			if (strtolower($_name) != strtolower($name)) continue;
+			unset($this->headers[$_name]);
+		}
+		return;
 	}
 	
 	public function processedRequestBody() {
@@ -81,7 +105,7 @@ class Message {
 		return $this->processedRequestBody();
 	}
 	
-	function &__get($var) {
+	function __get($var) {
 		$methodName = 'get'.ucfirst($var);
 		if (method_exists($this, $methodName)) {
 			return $this->$methodName();
@@ -113,5 +137,53 @@ class Message {
 			}
 		}
 		throw new \Exception('No such method ' . get_called_class() . '->' . $methodname);
+	}
+	
+	function getContext($path) {
+		$value = self::GetKeyPath($this->context, $path, false);
+		return $value;
+	}
+	function setContext($path, $value) {
+		$place = &self::GetKeyPath($this->context, $path, true);
+		$place = $value;
+	}
+	protected static function &GetKeyPath(&$arr, $keyPath, $create = false) {
+		$keyPathParts = !is_array($keyPath) ? explode('.', $keyPath) : $keyPath;
+		$subjectKey = array_shift($keyPathParts);
+		$array_append = false;
+		if (preg_match('/^([^\[]+)\[([^\]]*)\]$/', $subjectKey, $match)) {
+			if (isset($match[2]) && strlen(trim($match[2]))>0) {
+				array_unshift($keyPathParts, $match[2]);
+			} else if ($create) {
+				// .. this is for setting/appending
+				$array_append = true;
+			}
+			$subjectKey = $match[1];
+		}
+		if (!isset($arr[$subjectKey])) {
+			if (!$create) {
+				$rv = false;
+				return $rv;
+			}
+			$arr[$subjectKey] = null;
+			if ($array_append) {
+				$arr[$subjectKey] = array();
+				array_unshift($keyPathParts, '0');	// first element of array
+			}
+			if (count($keyPathParts)==0) {
+				return $arr[$subjectKey];
+			}
+			return self::GetKeyPath($arr[$subjectKey], $keyPathParts, true);
+		}
+		if ($array_append) {
+			$count = count($arr[$subjectKey]);
+			$arr[$subjectKey][$count] = null;
+			$item = &$arr[$subjectKey][$count];
+		} else {
+			$item = &$arr[$subjectKey];
+		}
+		if (count($keyPathParts)==0) 
+			return $item;
+		return self::GetKeyPath($item, $keyPathParts, $create);
 	}
 }
